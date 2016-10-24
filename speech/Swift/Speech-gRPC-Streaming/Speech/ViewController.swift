@@ -22,6 +22,7 @@ let SAMPLE_RATE = 16000
 class ViewController : UIViewController, AudioControllerDelegate {
   @IBOutlet weak var textView: UITextView!
   var audioData: NSMutableData!
+  var startTime: Int64 = 0
 
   override func viewDidLoad() {
     super.viewDidLoad()
@@ -35,6 +36,10 @@ class ViewController : UIViewController, AudioControllerDelegate {
     } catch {
 
     }
+
+    textView.text = ""
+    startTime = Int64(Date().timeIntervalSince1970 * 1000)
+
     audioData = NSMutableData()
     _ = AudioController.sharedInstance.prepare(specifiedSampleRate: SAMPLE_RATE)
     SpeechRecognitionService.sharedInstance.sampleRate = SAMPLE_RATE
@@ -44,6 +49,12 @@ class ViewController : UIViewController, AudioControllerDelegate {
   @IBAction func stopAudio(_ sender: NSObject) {
     _ = AudioController.sharedInstance.stop()
     SpeechRecognitionService.sharedInstance.stopStreaming()
+  }
+
+  func shiftText(text: String) -> Void {
+      let millies = Int64(Date().timeIntervalSince1970 * 1000) - startTime
+
+      self.textView.text = "[\(millies)] " + text + "\n" + self.textView.text
   }
 
   func processSampleData(_ data: Data) -> Void {
@@ -63,14 +74,23 @@ class ViewController : UIViewController, AudioControllerDelegate {
           } else if let response = response {
             var finished = false
             print(response)
+            self.shiftText( text: response.description)
             for result in response.resultsArray! {
               if let result = result as? StreamingRecognitionResult {
+                var i =  0;
+                for alternative in result.alternativesArray {
+                    let alt = alternative as? SpeechRecognitionAlternative
+
+                    self.shiftText(text: "alt \(i): " + (alt?.transcript)!)
+
+                    i += 1
+                }
                 if result.isFinal {
                   finished = true
                 }
               }
             }
-            self.textView.text = response.description
+
             if finished {
               self.stopAudio(self)
             }
